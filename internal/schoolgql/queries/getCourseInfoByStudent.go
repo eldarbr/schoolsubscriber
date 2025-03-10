@@ -1,0 +1,102 @@
+package queries
+
+const (
+	// Получение информации по локальному курсу в окне Projects для определённого студента
+	GetCourseInfoByStudent TOperationName = `getCourseInfoByStudent`
+
+	getCourseInfoByStudentQuery = `query getCourseInfoByStudent($localCourseId: ID!, $studentId: UUID!) {
+  course {
+    getCourseCoverInformationByStudent(
+      localCourseId: $localCourseId
+      studentId: $studentId
+    ) {
+      ...CourseInfo
+    }
+    getCourseAttemptStatisticByStudent(
+      localCourseId: $localCourseId
+      studentId: $studentId
+    ) {
+      completionResultStatus
+    }
+    getCourseRetryInfoByStudent(
+      localCourseId: $localCourseId
+      studentId: $studentId
+    ) {
+      totalRetryValue
+      usedRetryCount
+      unlimitedAttempts
+    }
+    getLocalCourseGoalsByStudent(
+      localCourseId: $localCourseId
+      studentId: $studentId
+      sortingFields: {name: "goalName", asc: true}
+    ) {
+      localCourseGoals {
+        executionType
+      }
+    }
+  }
+}
+
+fragment TimelineItemChildren on ProjectTimelineItem {
+  type
+  elementType
+  status
+  start
+  end
+  order
+}
+
+fragment TimelineItem on ProjectTimelineItem {
+  type
+  status
+  start
+  end
+  children {
+    ...TimelineItemChildren
+  }
+}
+
+fragment CourseInfo on CourseCoverInformation {
+  courseName
+  courseType
+  courseStatus
+  displayedCourseStatus
+  signUpEndDate
+  signUpStartDate
+  workStartDate
+  workEndDate
+  duration
+  courseDescription
+  finalPercentage
+  courseStatusesHistory
+  experience
+  experienceFact
+  currentStudentCount
+  retriesOfCurrentStudents
+  teamsWaitingEvaluationCount
+  displayedCourseStatus
+  finishedCount
+  retriesCount
+  resultCourseCompletion
+  softSkills {
+    softSkillId
+    maxPower
+    currentUserPower
+    softSkillName
+    totalPower
+    teamRole
+    achievedUserPower
+  }
+  isRetryAvailable
+  isCourseCanBeFinished
+  timeline {
+    ...TimelineItem
+  }
+}`
+)
+
+type VarsGetCourseInfoByStudent struct {
+	LocalCourseID int    `json:"localCourseId"`
+	StudentID     string `json:"studentId"`
+}
