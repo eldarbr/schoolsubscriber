@@ -1,7 +1,6 @@
 package queries
 
 const (
-	// Получение информации по локальному курсу в окне Projects для определённого студента
 	GetCourseInfoByStudent TOperationName = `getCourseInfoByStudent`
 
 	getCourseInfoByStudentQuery = `query getCourseInfoByStudent($localCourseId: ID!, $studentId: UUID!) {

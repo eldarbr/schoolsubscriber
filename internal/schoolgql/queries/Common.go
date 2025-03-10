@@ -8,7 +8,9 @@ import (
 )
 
 type TQuery string
+
 type TOperationName string
+
 type varsEmpty struct{}
 
 var mapOpToQuery = map[TOperationName]TQuery{

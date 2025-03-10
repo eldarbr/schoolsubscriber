@@ -1,7 +1,6 @@
 package queries
 
 const (
-	// Получение информации по локальному курсу в окне Projects для определённого студента
 	GetLocalCourseGoals TOperationName = `getLocalCourseGoals`
 
 	getLocalCourseGoalsQuery = `query getLocalCourseGoals($localCourseId: ID!) {

@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 const (
 	graphqlEndpoint = `https://edu.21-school.ru/services/graphql`
+	clientTimeout   = time.Second * 15
 )
 
 type IBaseResponse interface {
@@ -43,7 +45,11 @@ func (req *Request) MakeRequest(ctx context.Context, token string, resultPlaceho
 	// httpReq.AddCookie(&http.Cookie{Name: "tokenId", Value: token})
 	httpReq.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	client := http.Client{
+		Timeout: clientTimeout,
+	}
+
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("making request: %w", err)
 	}

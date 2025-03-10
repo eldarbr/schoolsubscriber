@@ -131,7 +131,8 @@ func (dom *Domain) GetCourseCurrentGoals(ctx context.Context, courseID int) ([]G
 	return result, nil
 }
 
-func (dom *Domain) AttemptSubscribe(ctx context.Context, goalID string, from, to time.Time, online bool) (bool, error) {
+func (dom *Domain) AttemptSubscribe(ctx context.Context, goalID string, ranges [][2]time.Time, online bool,
+) (bool, error) {
 	var (
 		taskID   string
 		answerID string
@@ -165,9 +166,9 @@ func (dom *Domain) AttemptSubscribe(ctx context.Context, goalID string, from, to
 		return false, fmt.Errorf("get answer id: %w", errAnsw)
 	}
 
-	slots, err := GetSlots(ctx, dom.tokener, taskID, from, to)
+	slots, err := GetSlotsRanges(ctx, dom.tokener, taskID, ranges)
 	if err != nil {
-		return false, fmt.Errorf("get slots: %w", err)
+		return false, fmt.Errorf("get slots from the ranges: %w", err)
 	}
 
 	log.Printf("Found %d slots\n", len(slots))
@@ -175,8 +176,6 @@ func (dom *Domain) AttemptSubscribe(ctx context.Context, goalID string, from, to
 	if len(slots) == 0 {
 		return false, nil
 	}
-
-	slices.SortFunc(slots, func(a, b time.Time) int { return int(a.Unix() - b.Unix()) })
 
 	for _, start := range slots {
 		_, err = OccupySlot(ctx, dom.tokener, answerID, start, online)
@@ -188,6 +187,69 @@ func (dom *Domain) AttemptSubscribe(ctx context.Context, goalID string, from, to
 	}
 
 	return false, nil
+}
+
+func GetSlotsRanges(ctx context.Context, tokener Tokener, taskID string, ranges [][2]time.Time) ([]time.Time, error) {
+	numWorkers := len(ranges)
+
+	rangesChan := make(chan [2]time.Time)
+	slotsChan := make(chan time.Time, numWorkers)
+	errChan := make(chan error, numWorkers)
+	group := sync.WaitGroup{}
+
+	for range numWorkers {
+		group.Add(1)
+
+		go func() {
+			defer group.Done()
+
+			for timeRange := range rangesChan {
+				slots, err := GetSlots(ctx, tokener, taskID, timeRange[0], timeRange[1])
+				if err != nil {
+					errChan <- fmt.Errorf("get slots: %w", err)
+
+					return
+				}
+
+				for _, slot := range slots {
+					slotsChan <- slot
+				}
+			}
+		}()
+	}
+
+	go func() {
+		for _, r := range ranges {
+			rangesChan <- r
+		}
+
+		close(rangesChan)
+	}()
+
+	group.Wait()
+	close(slotsChan)
+	close(errChan)
+
+	errs := make([]error, 0, len(errChan))
+
+	for err := range errChan {
+		errs = append(errs, err)
+	}
+
+	err := errors.Join(errs...)
+	if err != nil {
+		return nil, fmt.Errorf("collect slots: %w", err)
+	}
+
+	slots := make([]time.Time, 0, len(slotsChan))
+
+	for slot := range slotsChan {
+		slots = append(slots, slot)
+	}
+
+	slices.SortFunc(slots, func(a, b time.Time) int { return int(a.Unix() - b.Unix()) })
+
+	return slots, nil
 }
 
 func GetUserIDStudentID(ctx context.Context, tokener Tokener, username string) (string, string, error) {
