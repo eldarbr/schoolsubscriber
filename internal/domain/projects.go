@@ -29,8 +29,8 @@ type Tokener interface {
 	Get(ctx context.Context) (string, error)
 }
 
-func NewDomain(tokener Tokener, username string) (*Domain, error) {
-	userID, studentID, err := GetUserIDStudentID(context.Background(), tokener, username)
+func NewDomain(ctx context.Context, tokener Tokener, username string) (*Domain, error) {
+	userID, studentID, err := GetUserIDStudentID(ctx, tokener, username)
 	if err != nil {
 		return nil, fmt.Errorf("get current user id: %w", err)
 	}
@@ -64,14 +64,14 @@ func (dom *Domain) GetCurrentGoals(ctx context.Context) ([]Goal, error) {
 	result := []Goal{}
 
 	for _, project := range respProjects.Data.Student.GetStudentCurrentProjects {
-		if project.GoalId != nil && project.GoalStatus != nil && *project.GoalStatus != ProjectStatusUnavailable {
-			result = append(result, Goal{GoalID: *project.GoalId, Status: *project.GoalStatus})
+		if project.GoalID != nil && project.GoalStatus != nil && *project.GoalStatus != ProjectStatusUnavailable {
+			result = append(result, Goal{GoalID: *project.GoalID, Status: *project.GoalStatus})
 		}
 
-		if project.LocalCourseId != nil {
+		if project.LocalCourseID != nil {
 			var goals []Goal
 
-			goals, err = dom.GetCourseCurrentGoals(ctx, *project.LocalCourseId)
+			goals, err = dom.GetCourseCurrentGoals(ctx, *project.LocalCourseID)
 			if err != nil {
 				return nil, fmt.Errorf("get course goals: %w", err)
 			}
@@ -122,7 +122,7 @@ func (dom *Domain) GetCourseCurrentGoals(ctx context.Context, courseID int) ([]G
 		}
 
 		result = append(result, Goal{
-			GoalID: goal.GoalId,
+			GoalID: goal.GoalID,
 			Name:   goal.GoalName,
 			Status: goal.Status,
 		})
@@ -132,68 +132,68 @@ func (dom *Domain) GetCourseCurrentGoals(ctx context.Context, courseID int) ([]G
 }
 
 func (dom *Domain) AttemptSubscribe(ctx context.Context, goalID string, ranges [][2]time.Time, online bool,
-) (bool, error) {
+) (time.Time, bool, error) {
 	var (
 		taskID   string
 		answerID string
-		wg       sync.WaitGroup
+		group    sync.WaitGroup
 
 		errTask error
 		errAnsw error
 	)
 
-	wg.Add(2)
+	group.Add(2)
 
 	go func() {
-		defer wg.Done()
+		defer group.Done()
 
 		taskID, errTask = GetTaskIDByGoalID(ctx, dom.tokener, goalID, dom.studentID)
 	}()
 
 	go func() {
-		defer wg.Done()
+		defer group.Done()
 
 		answerID, errAnsw = GetAnswerIDByGoalID(ctx, dom.tokener, goalID, dom.studentID)
 	}()
 
-	wg.Wait()
+	group.Wait()
 
 	if errTask != nil {
-		return false, fmt.Errorf("get task id: %w", errTask)
+		return time.Time{}, false, fmt.Errorf("get task id: %w", errTask)
 	}
 
 	if errAnsw != nil {
-		return false, fmt.Errorf("get answer id: %w", errAnsw)
+		return time.Time{}, false, fmt.Errorf("get answer id: %w", errAnsw)
 	}
 
 	slots, err := GetSlotsRanges(ctx, dom.tokener, taskID, ranges)
 	if err != nil {
-		return false, fmt.Errorf("get slots from the ranges: %w", err)
+		return time.Time{}, false, fmt.Errorf("get slots from the ranges: %w", err)
 	}
 
 	log.Printf("Found %d slots\n", len(slots))
 
 	if len(slots) == 0 {
-		return false, nil
+		return time.Time{}, false, nil
 	}
 
 	for _, start := range slots {
 		_, err = OccupySlot(ctx, dom.tokener, answerID, start, online)
 		if err == nil {
-			return true, nil
+			return start, true, nil
 		}
 
 		log.Println("Occupy:", err.Error())
 	}
 
-	return false, nil
+	return time.Time{}, false, nil
 }
 
 func GetSlotsRanges(ctx context.Context, tokener Tokener, taskID string, ranges [][2]time.Time) ([]time.Time, error) {
 	numWorkers := len(ranges)
 
 	rangesChan := make(chan [2]time.Time)
-	slotsChan := make(chan time.Time, numWorkers)
+	slotsChan := make(chan time.Time)
 	errChan := make(chan error, numWorkers)
 	group := sync.WaitGroup{}
 
@@ -226,9 +226,22 @@ func GetSlotsRanges(ctx context.Context, tokener Tokener, taskID string, ranges 
 		close(rangesChan)
 	}()
 
+	slots := make([]time.Time, 0)
+	collected := make(chan struct{})
+	// collector
+	go func() {
+		for slot := range slotsChan {
+			slots = append(slots, slot)
+		}
+
+		close(collected)
+	}()
+
 	group.Wait()
 	close(slotsChan)
 	close(errChan)
+
+	<-collected
 
 	errs := make([]error, 0, len(errChan))
 
@@ -239,12 +252,6 @@ func GetSlotsRanges(ctx context.Context, tokener Tokener, taskID string, ranges 
 	err := errors.Join(errs...)
 	if err != nil {
 		return nil, fmt.Errorf("collect slots: %w", err)
-	}
-
-	slots := make([]time.Time, 0, len(slotsChan))
-
-	for slot := range slotsChan {
-		slots = append(slots, slot)
 	}
 
 	slices.SortFunc(slots, func(a, b time.Time) int { return int(a.Unix() - b.Unix()) })
@@ -266,7 +273,7 @@ func GetUserIDStudentID(ctx context.Context, tokener Tokener, username string) (
 	req.Variables = queries.VarsGetCredentialsByLogin{Login: username}
 	respCreds := queries.ResponseGetCredentialsByLogin{}
 
-	err = req.MakeRequest(context.Background(), token, &respCreds)
+	err = req.MakeRequest(ctx, token, &respCreds)
 	if err != nil {
 		return "", "", fmt.Errorf("new req get credentials: %w", err)
 	}
@@ -288,7 +295,7 @@ func GetAnswerIDByGoalID(ctx context.Context, tokener Tokener, goalID, studentID
 	req.Variables = queries.VarsGetProjectAttemptEvaluationsInfoByStudent{GoalID: goalID, StudentID: studentID}
 	resp := queries.ResponseGetProjectAttemptEvaluationsInfoByStudent{}
 
-	err = req.MakeRequest(context.Background(), token, &resp)
+	err = req.MakeRequest(ctx, token, &resp)
 	if err != nil {
 		return "", fmt.Errorf("make req get attempts: %w", err)
 	}
@@ -297,7 +304,7 @@ func GetAnswerIDByGoalID(ctx context.Context, tokener Tokener, goalID, studentID
 
 	for _, attempt := range resp.Data.School21.GetProjectAttemptEvaluationsInfo {
 		if attempt.Auto.Status == AnswerStatusNotScheduled {
-			answerID = attempt.StudentAnswerId
+			answerID = attempt.StudentAnswerID
 		}
 	}
 
@@ -322,12 +329,12 @@ func GetTaskIDByGoalID(ctx context.Context, tokener Tokener, goalID, studentID s
 	req.Variables = queries.VarsGetProjectInfoByStudent{GoalID: goalID, StudentID: studentID}
 	resp := queries.ResponseGetProjectInfoByStudent{}
 
-	err = req.MakeRequest(context.Background(), token, &resp)
+	err = req.MakeRequest(ctx, token, &resp)
 	if err != nil {
 		return "", fmt.Errorf("make req get project info: %w", err)
 	}
 
-	return resp.Data.School21.GetModuleById.CurrentTask.TaskID, nil
+	return resp.Data.School21.GetModuleByID.CurrentTask.TaskID, nil
 }
 
 func GetSlots(ctx context.Context, tokener Tokener, taskID string, from, to time.Time) ([]time.Time, error) {
@@ -348,7 +355,7 @@ func GetSlots(ctx context.Context, tokener Tokener, taskID string, from, to time
 	}
 	resp := queries.ResponseCalendarGetNameLessStudentTimeslotsForReview{}
 
-	err = req.MakeRequest(context.Background(), token, &resp)
+	err = req.MakeRequest(ctx, token, &resp)
 	if err != nil {
 		return nil, fmt.Errorf("make req get timeslots: %w", err)
 	}
@@ -360,6 +367,10 @@ func GetSlots(ctx context.Context, tokener Tokener, taskID string, from, to time
 	for _, slotSpan := range resp.Data.Student.GetNameLessStudentTimeslotsForReview.TimeSlots {
 		for i := range slotSpan.ValidStartTimes {
 			startTime, err = schoolgql.FormatStrToTime(slotSpan.ValidStartTimes[i])
+			if err != nil {
+				return nil, fmt.Errorf("parse time: %w", err)
+			}
+
 			result = append(result, startTime)
 		}
 	}
@@ -391,7 +402,7 @@ func OccupySlot(ctx context.Context, tokener Tokener, answerID string, slotStart
 	}
 	resp := queries.ResponseCalendarAddBookingToEventSlot{}
 
-	err = req.MakeRequest(context.Background(), token, &resp)
+	err = req.MakeRequest(ctx, token, &resp)
 	if err != nil {
 		return "", fmt.Errorf("make req add booking: %w", err)
 	}

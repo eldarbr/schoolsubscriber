@@ -3,7 +3,6 @@
 package queries
 
 const (
-	// Получение всех текущих проектов студента
 	GetStudentCurrentProjects TOperationName = `getStudentCurrentProjects`
 
 	getStudentCurrentProjectsQuery = `query getStudentCurrentProjects($userId: ID!) {
@@ -59,11 +58,11 @@ type ResponseGetStudentCurrentProjects struct {
 				ExecutionType                  any     `json:"executionType"`
 				Experience                     int     `json:"experience"`
 				FinalPercentage                any     `json:"finalPercentage"`
-				GoalId                         *string `json:"goalId"`
+				GoalID                         *string `json:"goalId"`
 				GoalStatus                     *string `json:"goalStatus"`
 				GroupName                      *string `json:"groupName"`
 				Laboriousness                  *int    `json:"laboriousness"`
-				LocalCourseId                  *int    `json:"localCourseId"`
+				LocalCourseID                  *int    `json:"localCourseId"`
 				Name                           string  `json:"name"`
 			} `json:"getStudentCurrentProjects"`
 		} `json:"student"`

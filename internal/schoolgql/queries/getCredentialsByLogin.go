@@ -1,8 +1,10 @@
 package queries
 
 const (
-	GetCredentialsByLogin      TOperationName = `getCredentialsByLogin`
-	getCredentialsByLoginQuery TQuery         = `query getCredentialsByLogin($login: String!) {
+	GetCredentialsByLogin TOperationName = `getCredentialsByLogin`
+
+	//nolint:gosec // false positive.
+	getCredentialsByLoginQuery TQuery = `query getCredentialsByLogin($login: String!) {
   school21 {
     getStudentByLogin(login: $login) {
       studentId

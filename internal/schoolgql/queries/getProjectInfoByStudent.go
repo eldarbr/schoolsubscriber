@@ -1,6 +1,7 @@
 package queries
 
-// goalId -> taskId
+// goalId -> taskId.
+
 const (
 	GetProjectInfoByStudent TOperationName = `getProjectInfoByStudent`
 
@@ -173,7 +174,7 @@ type ResponseGetProjectInfoByStudent struct {
 			// 	UnlimitedAttempts bool `json:"unlimitedAttempts"`
 			// 	UsedRetryCount    int  `json:"usedRetryCount"`
 			// } `json:"getGoalRetryInfo"`
-			GetModuleById struct {
+			GetModuleByID struct {
 				AccessBeforeStartProgress bool `json:"accessBeforeStartProgress"`
 				CourseBaseParameters      struct {
 					IsGradedCourse bool `json:"isGradedCourse"`
@@ -208,7 +209,7 @@ type ResponseGetProjectInfoByStudent struct {
 				ID                                string `json:"id"`
 				IsDeadlineFree                    bool   `json:"isDeadlineFree"`
 				IsRetryAvailable                  bool   `json:"isRetryAvailable"`
-				LocalCourseId                     string `json:"localCourseId"`
+				LocalCourseID                     string `json:"localCourseId"`
 				ModuleTitle                       string `json:"moduleTitle"`
 				ResultModuleCompletion            any    `json:"resultModuleCompletion"`
 				StudyModule                       struct {

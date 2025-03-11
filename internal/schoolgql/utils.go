@@ -9,5 +9,5 @@ func FormatTimeToStr(t time.Time) string {
 }
 
 func FormatStrToTime(s string) (time.Time, error) {
-	return time.Parse(time.RFC3339, s)
+	return time.Parse(time.RFC3339, s) //nolint:wrapcheck // too verbal.
 }

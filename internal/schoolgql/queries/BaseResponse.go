@@ -18,17 +18,17 @@ func (br *BaseResponse) GetErrorText() *string {
 		return nil
 	}
 
-	sb := strings.Builder{}
+	builder := strings.Builder{}
 
 	for i := range br.Errors {
-		if sb.Len() != 0 {
-			sb.WriteString("; ")
+		if builder.Len() != 0 {
+			builder.WriteString("; ")
 		}
 
-		sb.WriteString(br.Errors[i].Message)
+		builder.WriteString(br.Errors[i].Message)
 	}
 
-	res := sb.String()
+	res := builder.String()
 
 	return &res
 }

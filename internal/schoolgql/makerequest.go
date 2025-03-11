@@ -39,13 +39,14 @@ func (req *Request) MakeRequest(ctx context.Context, token string, resultPlaceho
 	httpReq.Header.Set("X-Edu-Org-Unit-Id", "6bfe3c56-0211-4fe1-9e59-51616caac4dd")
 	httpReq.Header.Set("schoolid", "6bfe3c56-0211-4fe1-9e59-51616caac4dd")
 	httpReq.Header.Set("userrole", "STUDENT")
+	// TODO: make this header part non-constant and actually gather the context-info
 
 	/* auth */
 	/* either of these */
 	// httpReq.AddCookie(&http.Cookie{Name: "tokenId", Value: token})
 	httpReq.Header.Set("Authorization", "Bearer "+token)
 
-	client := http.Client{
+	client := http.Client{ //nolint:exhaustruct // leave defaults.
 		Timeout: clientTimeout,
 	}
 

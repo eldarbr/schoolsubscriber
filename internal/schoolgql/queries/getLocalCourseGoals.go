@@ -57,8 +57,8 @@ type ResponseGetLocalCourseGoals struct {
 			GetLocalCourseGoals struct {
 				CourseName       string `json:"courseName"`
 				CourseType       string `json:"courseType"`
-				GlobalCourseId   string `json:"globalCourseId"`
-				LocalCourseId    string `json:"localCourseId"`
+				GlobalCourseID   string `json:"globalCourseId"`
+				LocalCourseID    string `json:"localCourseId"`
 				LocalCourseGoals []struct {
 					BeginDate          any    `json:"beginDate"`
 					CheckDate          any    `json:"checkDate"`
@@ -67,7 +67,7 @@ type ResponseGetLocalCourseGoals struct {
 					ExecutionType      string `json:"executionType"`
 					FinalPercentage    int    `json:"finalPercentage"`
 					FinalPoint         int    `json:"finalPoint"`
-					GoalId             string `json:"goalId"`
+					GoalID             string `json:"goalId"`
 					GoalName           string `json:"goalName"`
 					IsContentAvailable bool   `json:"isContentAvailable"`
 					PeriodSettings     string `json:"periodSettings"`

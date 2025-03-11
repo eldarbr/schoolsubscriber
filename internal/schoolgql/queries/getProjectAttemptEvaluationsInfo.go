@@ -170,7 +170,7 @@ type ResponseGetProjectAttemptEvaluationsInfoByStudent struct {
 					Status string `json:"status"`
 				} `json:"p2p"`
 
-				StudentAnswerId string `json:"studentAnswerId"`
+				StudentAnswerID string `json:"studentAnswerId"`
 				// Team            any    `json:"team"`
 			} `json:"getProjectAttemptEvaluationsInfo"`
 		} `json:"school21"`
