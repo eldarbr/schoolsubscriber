@@ -12,9 +12,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/eldarbr/go-auth/pkg/config"
 	"github.com/eldarbr/schoolauth"
 	"github.com/eldarbr/schoolsubscriber/internal/domain"
 )
+
+type ConfTime time.Time
+
+type confTimeRanges struct {
+	Start *ConfTime `yaml:"start"`
+	End   *ConfTime `yaml:"end"`
+}
+
+type appConf struct {
+	TimeRanges []confTimeRanges `yaml:"ranges"`
+}
 
 const (
 	slotsCheckPerion = 10 * time.Second
@@ -25,21 +37,31 @@ var (
 )
 
 func main() {
-	flgUsername := flag.String("u", "", "username")
-	flgPassword := flag.String("p", "", "password")
-	flgPathRanges := flag.String("r", "", "path to the file with time ranges")
+	var (
+		conf appConf
+
+		flgUsername = flag.String("u", "", "username")
+		flgPassword = flag.String("p", "", "password")
+		flgConf     = flag.String("c", "", "path to the config")
+	)
 
 	flag.Parse()
 
-	if *flgUsername == "" || *flgPassword == "" || *flgPathRanges == "" {
-		log.Println("Error - please provide username and password and path to a file with valid time ranges")
+	if *flgUsername == "" || *flgPassword == "" || *flgConf == "" {
+		log.Println("Error - please provide username and password and path to a yaml with valid time ranges")
 
 		return
 	}
 
-	timeRanges, err := parseTimeRanges(*flgPathRanges)
+	err := config.ParseConfig(*flgConf, &conf)
 	if err != nil {
-		log.Println("Err Parse time ranges:", err)
+		log.Println("Err Reading config:")
+		return
+	}
+
+	timeRanges := convConfTimeRanges(conf.TimeRanges)
+	if len(timeRanges) < 1 {
+		log.Println("Err Parse time ranges: no ranges")
 
 		return
 	}
@@ -136,6 +158,20 @@ func parseTimeRanges(path string) ([][2]time.Time, error) {
 	return ranges, nil
 }
 
+func convConfTimeRanges(ranges []confTimeRanges) [][2]time.Time {
+	result := make([][2]time.Time, 0, len(ranges))
+
+	for _, r := range ranges {
+		if r.Start == nil || r.End == nil {
+			continue
+		}
+
+		result = append(result, [2]time.Time{time.Time(*r.Start), time.Time(*r.End)})
+	}
+
+	return result
+}
+
 func interactiveGoalDecision(goals []domain.Goal) int {
 	if len(goals) < 2 {
 		log.Println("a goal has been chosen automatically:")
@@ -179,4 +215,22 @@ func interactiveGoalDecision(goals []domain.Goal) int {
 
 		log.Println("Err given GoalID is not valid")
 	}
+}
+
+func (t *ConfTime) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var str string
+
+	err := unmarshal(&str)
+	if err != nil {
+		return fmt.Errorf("config.UnmarshalYAML unmarshal failed: %w", err)
+	}
+
+	vt, err := time.ParseInLocation(time.DateTime, str, time.Local)
+	if err != nil {
+		return fmt.Errorf("config.UnmarshalYAML url.Parse failed: %w", err)
+	}
+
+	*t = ConfTime(vt)
+
+	return nil
 }
