@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strings"
@@ -30,6 +29,7 @@ type appConf struct {
 
 const (
 	slotsCheckPerion = 10 * time.Second
+	aliveProbePeriod = 15 * time.Minute
 )
 
 var (
@@ -43,6 +43,8 @@ func main() {
 		flgUsername = flag.String("u", "", "username")
 		flgPassword = flag.String("p", "", "password")
 		flgConf     = flag.String("c", "", "path to the config")
+
+		aliveProbe time.Time
 	)
 
 	flag.Parse()
@@ -55,7 +57,8 @@ func main() {
 
 	err := config.ParseConfig(*flgConf, &conf)
 	if err != nil {
-		log.Println("Err Reading config:")
+		log.Println("Err Reading config:", err)
+
 		return
 	}
 
@@ -68,14 +71,14 @@ func main() {
 
 	managedToken := schoolauth.NewManagedToken(*flgUsername, *flgPassword, nil)
 
-	dom, err := domain.NewDomain(context.Background(), managedToken, *flgUsername)
+	client, err := domain.NewDomain(context.Background(), managedToken, *flgUsername)
 	if err != nil {
 		log.Println("Err New domain:", err)
 
 		return
 	}
 
-	goals, err := dom.GetCurrentGoals(context.Background())
+	goals, err := client.GetCurrentGoals(context.Background())
 	if err != nil {
 		log.Println("Err Get current goals:", err)
 
@@ -84,10 +87,19 @@ func main() {
 
 	goals = domain.GoalsFilterEvaluated(goals)
 	if len(goals) < 1 {
+		log.Println("No goals to review :)")
+
 		return
 	}
 
 	goalsIDx := interactiveGoalDecision(goals)
+
+	taskID, answerID, err := client.GetTaskIDAnswerID(context.Background(), goals[goalsIDx].GoalID)
+	if err != nil {
+		log.Println("Err Get task and answer ids: ", err)
+
+		return
+	}
 
 	for {
 		var (
@@ -95,7 +107,13 @@ func main() {
 			start time.Time
 		)
 
-		start, succ, err = dom.AttemptSubscribe(context.Background(), goals[goalsIDx].GoalID, timeRanges, true)
+		if time.Since(aliveProbe) >= aliveProbePeriod {
+			log.Println("alive")
+
+			aliveProbe = time.Now()
+		}
+
+		start, succ, err = client.AttemptSubscribe(context.Background(), taskID, answerID, timeRanges, true)
 		if err != nil {
 			log.Println("Err Attempt:", err)
 
@@ -108,54 +126,6 @@ func main() {
 			time.Sleep(slotsCheckPerion)
 		}
 	}
-}
-
-func parseTimeRanges(path string) ([][2]time.Time, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("open file: %w", err)
-	}
-
-	defer file.Close()
-
-	var (
-		reader = bufio.NewReader(file)
-		ranges = make([][2]time.Time, 0)
-
-		line  []byte
-		start time.Time
-		end   time.Time
-	)
-
-	for {
-		line, err = reader.ReadBytes('\n')
-		if errors.Is(err, io.EOF) {
-			break
-		}
-
-		if err != nil {
-			return nil, fmt.Errorf("read line with buffered: %w", err)
-		}
-
-		spl := strings.Split(strings.Trim(string(line), " \n"), "_")
-		if len(spl) != 2 && len(spl) != 3 {
-			return nil, ErrFileFormatRanges
-		}
-
-		start, err = time.ParseInLocation(time.DateTime, spl[0], time.Local)
-		if err != nil {
-			return nil, fmt.Errorf("parse start time: %w", err)
-		}
-
-		end, err = time.ParseInLocation(time.DateTime, spl[1], time.Local)
-		if err != nil {
-			return nil, fmt.Errorf("parse end time: %w", err)
-		}
-
-		ranges = append(ranges, [2]time.Time{start, end})
-	}
-
-	return ranges, nil
 }
 
 func convConfTimeRanges(ranges []confTimeRanges) [][2]time.Time {

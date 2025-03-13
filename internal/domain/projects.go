@@ -131,51 +131,32 @@ func (dom *Domain) GetCourseCurrentGoals(ctx context.Context, courseID int) ([]G
 	return result, nil
 }
 
-func (dom *Domain) AttemptSubscribe(ctx context.Context, goalID string, ranges [][2]time.Time, online bool,
+func (dom *Domain) GetTaskIDAnswerID(ctx context.Context, goalID string) (string, string, error) {
+	taskID, err := GetTaskIDByGoalID(ctx, dom.tokener, goalID, dom.studentID)
+	if err != nil {
+		return "", "", fmt.Errorf("get task id: %w", err)
+	}
+
+	answerID, err := GetAnswerIDByGoalID(ctx, dom.tokener, goalID, dom.studentID)
+	if err != nil {
+		return "", "", fmt.Errorf("get task id: %w", err)
+	}
+
+	return taskID, answerID, nil
+}
+
+func (dom *Domain) AttemptSubscribe(ctx context.Context, taskID, answerID string, ranges [][2]time.Time, online bool,
 ) (time.Time, bool, error) {
-	var (
-		taskID   string
-		answerID string
-		group    sync.WaitGroup
-
-		errTask error
-		errAnsw error
-	)
-
-	group.Add(2)
-
-	go func() {
-		defer group.Done()
-
-		taskID, errTask = GetTaskIDByGoalID(ctx, dom.tokener, goalID, dom.studentID)
-	}()
-
-	go func() {
-		defer group.Done()
-
-		answerID, errAnsw = GetAnswerIDByGoalID(ctx, dom.tokener, goalID, dom.studentID)
-	}()
-
-	group.Wait()
-
-	if errTask != nil {
-		return time.Time{}, false, fmt.Errorf("get task id: %w", errTask)
-	}
-
-	if errAnsw != nil {
-		return time.Time{}, false, fmt.Errorf("get answer id: %w", errAnsw)
-	}
-
 	slots, err := GetSlotsRanges(ctx, dom.tokener, taskID, ranges)
 	if err != nil {
 		return time.Time{}, false, fmt.Errorf("get slots from the ranges: %w", err)
 	}
 
-	log.Printf("Found %d slots\n", len(slots))
-
 	if len(slots) == 0 {
 		return time.Time{}, false, nil
 	}
+
+	log.Printf("Found %d slots\n", len(slots))
 
 	for _, start := range slots {
 		_, err = OccupySlot(ctx, dom.tokener, answerID, start, online)
