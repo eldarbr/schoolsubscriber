@@ -3,8 +3,9 @@
 _docs/
 bin/
 secret/
-config.yaml
+*config.yaml
 *.pprof
+randomstuff.go
 
 ### go section
 

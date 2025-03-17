@@ -13,7 +13,7 @@ fmt:
 
 lint:
 	go vet ./...
-	golangci-lint run --enable-all --color=never --disable=$(DISABLED_LINTERS)
+	golangci-lint run --enable-all --disable=$(DISABLED_LINTERS)
 
 clean:
 	rm -rf bin

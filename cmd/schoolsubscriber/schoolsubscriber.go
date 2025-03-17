@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/eldarbr/go-auth/pkg/config"
@@ -28,8 +29,9 @@ type appConf struct {
 }
 
 const (
-	slotsCheckPerion = 10 * time.Second
-	aliveProbePeriod = 15 * time.Minute
+	slotsCheckPerion  = 10 * time.Second
+	aliveProbePeriod  = 30 * time.Minute
+	appDateTimeLocale = time.DateTime
 )
 
 var (
@@ -43,8 +45,6 @@ func main() {
 		flgUsername = flag.String("u", "", "username")
 		flgPassword = flag.String("p", "", "password")
 		flgConf     = flag.String("c", "", "path to the config")
-
-		aliveProbe time.Time
 	)
 
 	flag.Parse()
@@ -92,14 +92,36 @@ func main() {
 		return
 	}
 
-	goalsIDx := interactiveGoalDecision(goals)
+	chosenGoals := interactiveGoalDecision(goals)
 
-	taskID, answerID, err := client.GetTaskIDAnswerID(context.Background(), goals[goalsIDx].GoalID)
+	PrintRanges(timeRanges)
+
+	group := sync.WaitGroup{}
+	for _, goal := range chosenGoals {
+		group.Add(1)
+
+		go attemptWorker(client, timeRanges, goal, &group)
+	}
+
+	group.Wait()
+}
+
+func attemptWorker(client *domain.Domain, timeRanges [][2]time.Time, goal domain.Goal, group *sync.WaitGroup) {
+	if group != nil {
+		defer group.Done()
+	}
+
+	taskID, answerID, err := client.GetTaskIDAnswerID(context.Background(), goal.GoalID)
 	if err != nil {
-		log.Println("Err Get task and answer ids: ", err)
+		log.Println("-", goal.GoalID, "Err Get task and answer ids: ", err)
 
 		return
 	}
+
+	aliveProbe := time.Time{}
+
+	ticker := time.NewTicker(slotsCheckPerion)
+	defer ticker.Stop()
 
 	for {
 		var (
@@ -108,23 +130,25 @@ func main() {
 		)
 
 		if time.Since(aliveProbe) >= aliveProbePeriod {
-			log.Println("alive")
+			log.Println("-", goal.GoalID, "alive")
 
 			aliveProbe = time.Now()
 		}
 
 		start, succ, err = client.AttemptSubscribe(context.Background(), taskID, answerID, timeRanges, true)
 		if err != nil {
-			log.Println("Err Attempt:", err)
+			log.Println("-", goal.GoalID, "Err Attempt:", err)
 
 			continue
 		}
 
 		if succ {
-			log.Printf("Subscribed for the slot: %s\n", start.Local().Format(time.DateTime))
-		} else {
-			time.Sleep(slotsCheckPerion)
+			log.Println("-", goal.GoalID, "Subscribed for the slot:", start.Local().Format(appDateTimeLocale))
+
+			continue
 		}
+
+		<-ticker.C
 	}
 }
 
@@ -142,48 +166,69 @@ func convConfTimeRanges(ranges []confTimeRanges) [][2]time.Time {
 	return result
 }
 
-func interactiveGoalDecision(goals []domain.Goal) int {
+func interactiveGoalDecision(goals []domain.Goal) []domain.Goal {
+	if len(goals) < 1 {
+		return []domain.Goal{}
+	}
+
 	if len(goals) < 2 {
 		log.Println("a goal has been chosen automatically:")
 
 		for i := range goals {
-			fmt.Printf("%7s - %25s - %s\n", goals[i].GoalID, goals[i].Name, goals[i].Status)
+			fmt.Printf("%7s - %-25s - %s\n", goals[i].GoalID, goals[i].Name, goals[i].Status)
 		}
 
-		return 0
+		return []domain.Goal{goals[0]}
 	}
 
-	var (
-		scanner = bufio.NewReader(os.Stdin)
+	scanner := bufio.NewReader(os.Stdin)
 
-		input  []byte
-		err    error
-		goalID string
-	)
+	availableGoalIDs := make(map[string]int, len(goals))
+	for i, g := range goals {
+		availableGoalIDs[g.GoalID] = i
+	}
 
+inpLoop:
 	for {
-		fmt.Println("Choose a goal:")
-
 		for i := range goals {
-			fmt.Printf("%7s - %25s - %s\n", goals[i].GoalID, goals[i].Name, goals[i].Status)
+			fmt.Printf("%7s - %-25s - %s\n", goals[i].GoalID, goals[i].Name, goals[i].Status)
 		}
 
-		input, err = scanner.ReadBytes('\n')
+		fmt.Print("Choose goals, comma separated or \"all\": ")
+
+		input, err := scanner.ReadBytes('\n')
 		if err != nil {
 			log.Println("Err Read bytes stdin:", err)
 
 			continue
 		}
 
-		goalID = strings.Trim(string(input), " \n")
+		if input[len(input)-1] == '\n' {
+			input = input[:len(input)-1]
+		}
 
-		for i := range goals {
-			if goals[i].GoalID == goalID {
-				return i
+		if string(input) == "all" {
+			return goals
+		}
+
+		goalIDs := strings.Split(strings.ReplaceAll(string(input), " ", ""), ",")
+		result := make([]domain.Goal, 0, len(goalIDs))
+
+		if len(goalIDs) < 1 {
+			continue
+		}
+
+		for _, inp := range goalIDs {
+			if srcID, ok := availableGoalIDs[inp]; ok {
+				result = append(result, goals[srcID])
+			} else {
+				log.Println("Err given GoalID is not valid")
+
+				continue inpLoop
 			}
 		}
 
-		log.Println("Err given GoalID is not valid")
+		return result
 	}
 }
 
@@ -195,7 +240,7 @@ func (t *ConfTime) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return fmt.Errorf("config.UnmarshalYAML unmarshal failed: %w", err)
 	}
 
-	vt, err := time.ParseInLocation(time.DateTime, str, time.Local)
+	vt, err := time.ParseInLocation(appDateTimeLocale, str, time.Local)
 	if err != nil {
 		return fmt.Errorf("config.UnmarshalYAML url.Parse failed: %w", err)
 	}
@@ -203,4 +248,17 @@ func (t *ConfTime) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	*t = ConfTime(vt)
 
 	return nil
+}
+
+func PrintRanges(ranges [][2]time.Time) {
+	fmt.Println("Working with this set of time ranges:")
+
+	for _, r := range ranges {
+		fmt.Println(
+			" - from:",
+			r[0].Format(appDateTimeLocale),
+			"\tto:",
+			r[1].Format(appDateTimeLocale),
+		)
+	}
 }
