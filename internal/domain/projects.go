@@ -29,6 +29,11 @@ type Tokener interface {
 	Get(ctx context.Context) (string, error)
 }
 
+var (
+	ErrNoSlots   = errors.New("no slots available")
+	ErrNoAnswers = errors.New("no evaluated answers found")
+)
+
 func NewDomain(ctx context.Context, tokener Tokener, username string) (*Domain, error) {
 	userID, studentID, err := GetUserIDStudentID(ctx, tokener, username)
 	if err != nil {
@@ -186,6 +191,10 @@ func GetSlotsRanges(ctx context.Context, tokener Tokener, taskID string, ranges 
 
 			for timeRange := range rangesChan {
 				slots, err := GetSlots(ctx, tokener, taskID, timeRange[0], timeRange[1])
+				if errors.Is(err, ErrNoSlots) {
+					return
+				}
+
 				if err != nil {
 					errChan <- fmt.Errorf("get slots: %w", err)
 
@@ -290,7 +299,7 @@ func GetAnswerIDByGoalID(ctx context.Context, tokener Tokener, goalID, studentID
 	}
 
 	if answerID == "" {
-		return "", errors.New("no unscheduled answers found")
+		return "", ErrNoAnswers
 	}
 
 	return answerID, nil
@@ -357,7 +366,7 @@ func GetSlots(ctx context.Context, tokener Tokener, taskID string, from, to time
 	}
 
 	if len(result) == 0 {
-		return nil, nil
+		return nil, ErrNoSlots
 	}
 
 	return result, nil

@@ -1,4 +1,4 @@
-DISABLED_LINTERS="depguard"
+DISABLED_LINTERS="depguard,exhaustruct"
 
 all: build
 

@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/eldarbr/schoolsubscriber/internal/myerrs"
 )
 
 const (
@@ -58,7 +59,7 @@ func (req *Request) MakeRequest(ctx context.Context, token string, resultPlaceho
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("status code: %d", resp.StatusCode)
+		return &myerrs.StatusCodeError{StatusCode: resp.StatusCode}
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(resultPlaceholder)
@@ -67,7 +68,7 @@ func (req *Request) MakeRequest(ctx context.Context, token string, resultPlaceho
 	}
 
 	if errText := resultPlaceholder.GetErrorText(); errText != nil {
-		return errors.New(*errText)
+		return &myerrs.PlatformError{Text: *errText}
 	}
 
 	return nil

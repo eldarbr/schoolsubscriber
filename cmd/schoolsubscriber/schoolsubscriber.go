@@ -34,9 +34,7 @@ const (
 	appDateTimeLocale = time.DateTime
 )
 
-var (
-	ErrFileFormatRanges = errors.New("ranges file has wrong format")
-)
+var ErrFileFormatRanges = errors.New("ranges file has wrong format")
 
 func main() {
 	var (
@@ -118,37 +116,42 @@ func attemptWorker(client *domain.Domain, timeRanges [][2]time.Time, goal domain
 		return
 	}
 
-	aliveProbe := time.Time{}
+	log.Println("-", goal.GoalID, "alive")
 
-	ticker := time.NewTicker(slotsCheckPerion)
-	defer ticker.Stop()
+	aliveTicker := time.NewTicker(aliveProbePeriod)
+	defer aliveTicker.Stop()
+
+	attemptTicker := time.NewTicker(slotsCheckPerion)
+	defer attemptTicker.Stop()
+
+	var (
+		succ   bool
+		succCh = make(chan bool, 1)
+		start  time.Time
+	)
+
+	succCh <- true // initial tick
 
 	for {
-		var (
-			succ  bool
-			start time.Time
-		)
-
-		if time.Since(aliveProbe) >= aliveProbePeriod {
+		select {
+		case <-aliveTicker.C:
 			log.Println("-", goal.GoalID, "alive")
+		case <-attemptTicker.C:
+		case <-succCh:
+			start, succ, err = client.AttemptSubscribe(context.Background(), taskID, answerID, timeRanges, true)
+			if err != nil {
+				log.Println("-", goal.GoalID, "Err Attempt:", err)
 
-			aliveProbe = time.Now()
+				continue
+			}
+
+			if succ {
+				succCh <- succ // try again immediately
+				log.Println("-", goal.GoalID, "Subscribed for the slot:", start.Local().Format(appDateTimeLocale))
+
+				continue
+			}
 		}
-
-		start, succ, err = client.AttemptSubscribe(context.Background(), taskID, answerID, timeRanges, true)
-		if err != nil {
-			log.Println("-", goal.GoalID, "Err Attempt:", err)
-
-			continue
-		}
-
-		if succ {
-			log.Println("-", goal.GoalID, "Subscribed for the slot:", start.Local().Format(appDateTimeLocale))
-
-			continue
-		}
-
-		<-ticker.C
 	}
 }
 
@@ -171,7 +174,7 @@ func interactiveGoalDecision(goals []domain.Goal) []domain.Goal {
 		return []domain.Goal{}
 	}
 
-	if len(goals) < 2 {
+	if len(goals) == 1 {
 		log.Println("a goal has been chosen automatically:")
 
 		for i := range goals {
