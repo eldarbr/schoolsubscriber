@@ -132,25 +132,28 @@ func attemptWorker(client *domain.Domain, timeRanges [][2]time.Time, goal domain
 
 	succCh <- true // initial tick
 
-	for {
+	attempt := func() {
+		start, succ, err = client.AttemptSubscribe(context.Background(), taskID, answerID, timeRanges, true)
+		if err != nil {
+			log.Println("-", goal.GoalID, "Err Attempt:", err)
+
+			return
+		}
+
+		if succ {
+			succCh <- succ // try again immediately
+			log.Println("-", goal.GoalID, "Subscribed for the slot:", start.Local().Format(appDateTimeLocale))
+		}
+	}
+
+	for { // loop
 		select {
 		case <-aliveTicker.C:
 			log.Println("-", goal.GoalID, "alive")
-		case <-attemptTicker.C:
 		case <-succCh:
-			start, succ, err = client.AttemptSubscribe(context.Background(), taskID, answerID, timeRanges, true)
-			if err != nil {
-				log.Println("-", goal.GoalID, "Err Attempt:", err)
-
-				continue
-			}
-
-			if succ {
-				succCh <- succ // try again immediately
-				log.Println("-", goal.GoalID, "Subscribed for the slot:", start.Local().Format(appDateTimeLocale))
-
-				continue
-			}
+			attempt()
+		case <-attemptTicker.C:
+			attempt()
 		}
 	}
 }
