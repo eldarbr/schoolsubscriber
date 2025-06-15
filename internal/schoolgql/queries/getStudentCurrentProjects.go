@@ -58,7 +58,7 @@ type ResponseGetStudentCurrentProjects struct {
 				ExecutionType                  any     `json:"executionType"`
 				Experience                     int     `json:"experience"`
 				FinalPercentage                any     `json:"finalPercentage"`
-				GoalID                         *string `json:"goalId"`
+				GoalID                         int     `json:"goalId"`
 				GoalStatus                     *string `json:"goalStatus"`
 				GroupName                      *string `json:"groupName"`
 				Laboriousness                  *int    `json:"laboriousness"`

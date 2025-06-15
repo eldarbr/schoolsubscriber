@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -181,7 +182,7 @@ func interactiveGoalDecision(goals []domain.Goal) []domain.Goal {
 		log.Println("a goal has been chosen automatically:")
 
 		for i := range goals {
-			fmt.Printf("%7s - %-25s - %s\n", goals[i].GoalID, goals[i].Name, goals[i].Status)
+			fmt.Printf("%7v - %-25s - %s\n", goals[i].GoalID, goals[i].Name, goals[i].Status)
 		}
 
 		return []domain.Goal{goals[0]}
@@ -189,7 +190,7 @@ func interactiveGoalDecision(goals []domain.Goal) []domain.Goal {
 
 	scanner := bufio.NewReader(os.Stdin)
 
-	availableGoalIDs := make(map[string]int, len(goals))
+	availableGoalIDs := make(map[int]int, len(goals))
 	for i, g := range goals {
 		availableGoalIDs[g.GoalID] = i
 	}
@@ -197,7 +198,7 @@ func interactiveGoalDecision(goals []domain.Goal) []domain.Goal {
 inpLoop:
 	for {
 		for i := range goals {
-			fmt.Printf("%7s - %-25s - %s\n", goals[i].GoalID, goals[i].Name, goals[i].Status)
+			fmt.Printf("%7v - %-25s - %s\n", goals[i].GoalID, goals[i].Name, goals[i].Status)
 		}
 
 		fmt.Print("Choose goals, comma separated or \"all\": ")
@@ -225,7 +226,14 @@ inpLoop:
 		}
 
 		for _, inp := range goalIDs {
-			if srcID, ok := availableGoalIDs[inp]; ok {
+			inpGoalID, err := strconv.Atoi(inp)
+			if err != nil {
+				log.Println("Err given GoalID is not valid")
+
+				continue inpLoop
+			}
+
+			if srcID, ok := availableGoalIDs[inpGoalID]; ok {
 				result = append(result, goals[srcID])
 			} else {
 				log.Println("Err given GoalID is not valid")

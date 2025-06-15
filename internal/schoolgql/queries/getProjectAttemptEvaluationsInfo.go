@@ -19,7 +19,6 @@ fragment OnlineReviewInfo on OnlineReview {
     onlineVideoId
     link
     status
-    statusDetails
     updateDateTime
     fileSize
   }
@@ -143,7 +142,7 @@ fragment ProjectAttemptEvaluations on ProjectAttemptEvaluationsInfo {
 )
 
 type VarsGetProjectAttemptEvaluationsInfoByStudent struct {
-	GoalID    string `json:"goalId"`
+	GoalID    int    `json:"goalId"`
 	StudentID string `json:"studentId"`
 }
 

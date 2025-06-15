@@ -16,8 +16,7 @@ const (
       id
     }
   }
-}
-`
+}`
 )
 
 type VarsCalendarAddBookingToEventSlot struct {

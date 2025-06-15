@@ -12,12 +12,9 @@ const (
       schoolId
       isActive
       isGraduate
-      __typename
     }
-    __typename
   }
-}
-`
+}`
 )
 
 type VarsGetCredentialsByLogin struct {

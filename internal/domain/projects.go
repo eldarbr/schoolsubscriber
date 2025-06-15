@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 )
 
 type Goal struct {
-	GoalID string
+	GoalID int
 	Name   string
 	Status string
 }
@@ -69,8 +70,8 @@ func (dom *Domain) GetCurrentGoals(ctx context.Context) ([]Goal, error) {
 	result := []Goal{}
 
 	for _, project := range respProjects.Data.Student.GetStudentCurrentProjects {
-		if project.GoalID != nil && project.GoalStatus != nil && *project.GoalStatus != ProjectStatusUnavailable {
-			result = append(result, Goal{GoalID: *project.GoalID, Status: *project.GoalStatus})
+		if project.GoalStatus != nil && *project.GoalStatus != ProjectStatusUnavailable {
+			result = append(result, Goal{GoalID: project.GoalID, Status: *project.GoalStatus})
 		}
 
 		if project.LocalCourseID != nil {
@@ -126,8 +127,17 @@ func (dom *Domain) GetCourseCurrentGoals(ctx context.Context, courseID int) ([]G
 			continue
 		}
 
+		var goalID int
+
+		goalID, err = strconv.Atoi(goal.GoalID)
+		if err != nil {
+			log.Println("Err Wrong goal id:", err)
+
+			continue
+		}
+
 		result = append(result, Goal{
-			GoalID: goal.GoalID,
+			GoalID: goalID,
 			Name:   goal.GoalName,
 			Status: goal.Status,
 		})
@@ -136,7 +146,7 @@ func (dom *Domain) GetCourseCurrentGoals(ctx context.Context, courseID int) ([]G
 	return result, nil
 }
 
-func (dom *Domain) GetTaskIDAnswerID(ctx context.Context, goalID string) (string, string, error) {
+func (dom *Domain) GetTaskIDAnswerID(ctx context.Context, goalID int) (string, string, error) {
 	taskID, err := GetTaskIDByGoalID(ctx, dom.tokener, goalID, dom.studentID)
 	if err != nil {
 		return "", "", fmt.Errorf("get task id: %w", err)
@@ -271,7 +281,7 @@ func GetUserIDStudentID(ctx context.Context, tokener Tokener, username string) (
 	return respCreds.Data.School21.GetStudentByLogin.UserID, respCreds.Data.School21.GetStudentByLogin.StudentID, nil
 }
 
-func GetAnswerIDByGoalID(ctx context.Context, tokener Tokener, goalID, studentID string) (string, error) {
+func GetAnswerIDByGoalID(ctx context.Context, tokener Tokener, goalID int, studentID string) (string, error) {
 	token, err := tokener.Get(ctx)
 	if err != nil {
 		return "", fmt.Errorf("tokener get token: %w", err)
@@ -305,7 +315,7 @@ func GetAnswerIDByGoalID(ctx context.Context, tokener Tokener, goalID, studentID
 	return answerID, nil
 }
 
-func GetTaskIDByGoalID(ctx context.Context, tokener Tokener, goalID, studentID string) (string, error) {
+func GetTaskIDByGoalID(ctx context.Context, tokener Tokener, goalID int, studentID string) (string, error) {
 	token, err := tokener.Get(ctx)
 	if err != nil {
 		return "", fmt.Errorf("tokener get token: %w", err)

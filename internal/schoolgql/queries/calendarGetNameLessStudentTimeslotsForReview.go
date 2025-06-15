@@ -4,33 +4,33 @@ const (
 	CalendarGetNameLessStudentTimeslotsForReview TOperationName = `calendarGetNameLessStudentTimeslotsForReview`
 
 	calendarGetNameLessStudentTimeslotsForReviewQuery TQuery = `query calendarGetNameLessStudentTimeslotsForReview($from: DateTime!, $taskId: ID!, $to: DateTime!) {
-    student {
-      getNameLessStudentTimeslotsForReview(from: $from, taskId: $taskId, to: $to) {
-        checkDuration
-        projectReviewsInfo {
-          ...ProjectReviewsInfo
-        }
-        timeSlots {
-          ...CalendarNameLessTimeslot
-        }
+  student {
+    getNameLessStudentTimeslotsForReview(from: $from, taskId: $taskId, to: $to) {
+      checkDuration
+      projectReviewsInfo {
+        ...ProjectReviewsInfo
+      }
+      timeSlots {
+        ...CalendarNameLessTimeslot
       }
     }
   }
+}
   
-  fragment ProjectReviewsInfo on ProjectReviewsInfo {
-    reviewByStudentCount
-    relevantReviewByStudentsCount
-    reviewByInspectionStaffCount
-    relevantReviewByInspectionStaffCount
-  }
-  
-  fragment CalendarNameLessTimeslot on CalendarNamelessTimeSlot {
-    start
-    end
-    validStartTimes
-    staffSlot
-  }
-`
+fragment CalendarNameLessTimeslot on CalendarNamelessTimeSlot {
+  start
+  end
+  validStartTimes
+  staffSlot
+}
+
+fragment ProjectReviewsInfo on ProjectReviewsInfo {
+  reviewByStudentCount
+  relevantReviewByStudentsCount
+  reviewByInspectionStaffCount
+  relevantReviewByInspectionStaffCount
+  p2pRequirementStatus
+}`
 )
 
 type VarsCalendarGetNameLessStudentTimeslotsForReview struct {

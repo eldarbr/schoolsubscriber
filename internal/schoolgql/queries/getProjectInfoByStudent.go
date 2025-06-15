@@ -36,6 +36,7 @@ fragment ProjectReviewsInfo on ProjectReviewsInfo {
   relevantReviewByStudentsCount
   reviewByInspectionStaffCount
   relevantReviewByInspectionStaffCount
+  p2pRequirementStatus
 }
 
 fragment TimelineItem on ProjectTimelineItem {
@@ -161,7 +162,7 @@ fragment ProjectInfo on StudentModule {
 )
 
 type VarsGetProjectInfoByStudent struct {
-	GoalID    string `json:"goalId"`
+	GoalID    int    `json:"goalId"`
 	StudentID string `json:"studentId"`
 }
 
