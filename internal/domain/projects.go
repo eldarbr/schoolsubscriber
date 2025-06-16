@@ -303,8 +303,10 @@ func GetAnswerIDByGoalID(ctx context.Context, tokener Tokener, goalID int, stude
 	answerID := ""
 
 	for _, attempt := range resp.Data.School21.GetProjectAttemptEvaluationsInfo {
-		if attempt.Auto.Status == AnswerStatusNotScheduled {
+		if attempt.AttemptResult == nil {
 			answerID = attempt.StudentAnswerID
+
+			break
 		}
 	}
 
