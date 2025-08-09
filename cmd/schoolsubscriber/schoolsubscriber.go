@@ -15,6 +15,7 @@ import (
 
 	"github.com/eldarbr/go-auth/pkg/config"
 	"github.com/eldarbr/schoolauth"
+	"github.com/eldarbr/schoolsubscriber/internal/client/tgbot"
 	"github.com/eldarbr/schoolsubscriber/internal/domain"
 )
 
@@ -25,12 +26,18 @@ type confTimeRanges struct {
 	End   *ConfTime `yaml:"end"`
 }
 
+type BotSetting struct {
+	Token  string `yaml:"token"`
+	ChatID int64  `yaml:"chat_id"`
+}
+
 type appConf struct {
 	TimeRanges []confTimeRanges `yaml:"ranges"`
+	Bot        *BotSetting      `yaml:"bot"`
 }
 
 const (
-	slotsCheckPerion  = 10 * time.Second
+	slotsCheckPeriod  = 10 * time.Second
 	aliveProbePeriod  = 30 * time.Minute
 	appDateTimeLocale = time.DateTime
 )
@@ -68,9 +75,20 @@ func main() {
 		return
 	}
 
+	var bot domain.Notificator
+
+	if conf.Bot != nil {
+		bot = tgbot.NewBot(conf.Bot.Token, conf.Bot.ChatID)
+		err = bot.SendMessage(context.Background(), "Hi! Searching slots")
+		if err != nil {
+			log.Println("Err bot initialization message:", err)
+			bot = nil
+		}
+	}
+
 	managedToken := schoolauth.NewManagedToken(*flgUsername, *flgPassword, nil)
 
-	client, err := domain.NewDomain(context.Background(), managedToken, *flgUsername)
+	client, err := domain.NewDomain(context.Background(), managedToken, *flgUsername, bot)
 	if err != nil {
 		log.Println("Err New domain:", err)
 
@@ -122,7 +140,7 @@ func attemptWorker(client *domain.Domain, timeRanges [][2]time.Time, goal domain
 	aliveTicker := time.NewTicker(aliveProbePeriod)
 	defer aliveTicker.Stop()
 
-	attemptTicker := time.NewTicker(slotsCheckPerion)
+	attemptTicker := time.NewTicker(slotsCheckPeriod)
 	defer attemptTicker.Stop()
 
 	var (

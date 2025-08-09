@@ -13,9 +13,9 @@ type BasePlusResponse struct {
 	Data any `json:"data"`
 }
 
-func (br *BaseResponse) GetErrorText() *string {
+func (br *BaseResponse) GetErrorText() string {
 	if br == nil || br.Errors == nil {
-		return nil
+		return ""
 	}
 
 	builder := strings.Builder{}
@@ -28,7 +28,5 @@ func (br *BaseResponse) GetErrorText() *string {
 		builder.WriteString(br.Errors[i].Message)
 	}
 
-	res := builder.String()
-
-	return &res
+	return builder.String()
 }
