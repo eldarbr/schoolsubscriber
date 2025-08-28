@@ -187,7 +187,8 @@ func (dom *Domain) AttemptSubscribe(ctx context.Context, taskID, answerID string
 		botCtx, botCtxCancel := context.WithTimeout(ctx, 10*time.Second)
 		defer botCtxCancel()
 
-		botErr := dom.notificator.SendMessage(botCtx, fmt.Sprintf("slot occupied at %s", slotStart.Format(time.DateTime)))
+		botErr := dom.notificator.SendMessage(
+			botCtx, fmt.Sprintf("slot occupied at %s", slotStart.Local().Format(time.DateTime)))
 		if botErr != nil {
 			log.Println("SendMessage:", err.Error())
 		}

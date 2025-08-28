@@ -37,7 +37,7 @@ type appConf struct {
 }
 
 const (
-	slotsCheckPeriod  = 10 * time.Second
+	slotsCheckPeriod  = 6 * time.Second
 	aliveProbePeriod  = 30 * time.Minute
 	appDateTimeLocale = time.DateTime
 )
