@@ -4,7 +4,7 @@ go 1.23.5
 
 require (
 	github.com/eldarbr/go-auth v1.1.2
-	github.com/eldarbr/schoolauth v1.0.2
+	github.com/eldarbr/schoolauth v1.0.3
 )
 
 require (

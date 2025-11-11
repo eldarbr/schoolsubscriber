@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	graphqlEndpoint = `https://edu.21-school.ru/services/graphql`
+	graphqlEndpoint = `https://platform.21-school.ru/services/graphql`
 	clientTimeout   = time.Second * 15
 )
 
 type IBaseResponse interface {
-	GetErrorText() *string
+	GetErrorText() string
 }
 
 func (req *Request) MakeRequest(ctx context.Context, token string, resultPlaceholder IBaseResponse) error {
@@ -67,8 +67,8 @@ func (req *Request) MakeRequest(ctx context.Context, token string, resultPlaceho
 		return fmt.Errorf("decoding response: %w", err)
 	}
 
-	if errText := resultPlaceholder.GetErrorText(); errText != nil {
-		return &myerrs.PlatformError{Text: *errText}
+	if errText := resultPlaceholder.GetErrorText(); errText != "" {
+		return &myerrs.PlatformError{Text: errText}
 	}
 
 	return nil

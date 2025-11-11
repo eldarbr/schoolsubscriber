@@ -21,9 +21,14 @@ type Goal struct {
 }
 
 type Domain struct {
-	userID    string
-	studentID string
-	tokener   Tokener
+	userID      string
+	studentID   string
+	tokener     Tokener
+	notificator Notificator
+}
+
+type Notificator interface {
+	SendMessage(ctx context.Context, msg string) error
 }
 
 type Tokener interface {
@@ -35,16 +40,17 @@ var (
 	ErrNoAnswers = errors.New("no evaluated answers found")
 )
 
-func NewDomain(ctx context.Context, tokener Tokener, username string) (*Domain, error) {
+func NewDomain(ctx context.Context, tokener Tokener, username string, notificator Notificator) (*Domain, error) {
 	userID, studentID, err := GetUserIDStudentID(ctx, tokener, username)
 	if err != nil {
 		return nil, fmt.Errorf("get current user id: %w", err)
 	}
 
 	return &Domain{
-		tokener:   tokener,
-		userID:    userID,
-		studentID: studentID,
+		tokener:     tokener,
+		userID:      userID,
+		studentID:   studentID,
+		notificator: notificator,
 	}, nil
 }
 
@@ -173,9 +179,26 @@ func (dom *Domain) AttemptSubscribe(ctx context.Context, taskID, answerID string
 
 	log.Printf("Found %d slots\n", len(slots))
 
+	asyncNotify := func(slotStart time.Time) {
+		if dom.notificator == nil {
+			return
+		}
+
+		botCtx, botCtxCancel := context.WithTimeout(ctx, 10*time.Second)
+		defer botCtxCancel()
+
+		botErr := dom.notificator.SendMessage(
+			botCtx, fmt.Sprintf("slot occupied at %s", slotStart.Local().Format(time.DateTime)))
+		if botErr != nil {
+			log.Println("SendMessage:", err.Error())
+		}
+	}
+
 	for _, start := range slots {
 		_, err = OccupySlot(ctx, dom.tokener, answerID, start, online)
 		if err == nil {
+			go asyncNotify(start)
+
 			return start, true, nil
 		}
 
